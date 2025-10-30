@@ -3,6 +3,7 @@ import {
   Injectable,
   linkedSignal,
   resource,
+  ResourceStreamItem,
   signal,
 } from '@angular/core';
 import { Book } from '../models/book';
@@ -59,12 +60,38 @@ export class StateService {
     defaultValue: null,
   });
 
+  #selectedStock = resource({
+    params: () => ({id: this.#selectedBookId()}),
+    stream: async (options) => {
+      const res = signal<ResourceStreamItem<number>>({value: 0});
+      if(options.params.id) {
+        const ws = new WebSocket(`${this.wsBase}/stock/${options.params.id}`);
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if(data?.stock !== undefined) {
+            res.set({value: data.stock})
+          }
+        }
+        
+        options.abortSignal.addEventListener('abort', () => {
+          ws.close();
+        })
+      }
+      return res;
+          
+    }
+  });
+
   get selectedBookId() {
     return this.#selectedBookId.asReadonly();
   }
 
   get selectedBook() {
     return this.#selectedBook.asReadonly();
+  }
+
+  get selectedStock() {
+    return this.#selectedStock.asReadonly();
   }
 
   get keyword() {
